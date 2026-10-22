@@ -1,0 +1,2 @@
+# Keep app/config directory in git without committing sensitive service account keys
+
