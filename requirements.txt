@@ -7,7 +7,8 @@ python-multipart>=0.0.9
 websockets>=13.0
 
 # Data Validation & Configuration
-pydantic>=2.8.0
+pydantic[email]>=2.8.0
+email-validator>=2.1.0
 pydantic-settings>=2.4.0
 
 # Firebase Admin SDK (Firestore Database & Token Verification)

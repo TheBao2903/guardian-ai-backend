@@ -78,6 +78,7 @@ class Settings(BaseSettings):
 
     # 3. Firebase Credentials & Firestore
     FIREBASE_CREDENTIALS_PATH: str = Field(default_factory=_find_default_firebase_credentials)
+    FIREBASE_CREDENTIALS_JSON: Optional[str] = None
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_WEB_API_KEY: str = "AIzaSyCnsRihZcg25Ey1YmxSg9kVw-xn-SJvTsw"
 

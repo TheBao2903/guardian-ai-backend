@@ -19,6 +19,8 @@ INPUT / OUTPUT:
 =============================================================================
 """
 
+import glob
+import json
 import os
 from typing import Optional
 import firebase_admin
@@ -40,19 +42,40 @@ def init_firebase() -> firebase_admin.App:
         return _firebase_app
 
     settings = get_settings()
-    cred_path = settings.FIREBASE_CREDENTIALS_PATH
 
-    if not cred_path or not os.path.exists(cred_path):
-        error_msg = f"Không tìm thấy file Firebase Service Account tại đường dẫn: {cred_path}"
-        logger.error(error_msg)
-        raise ProviderException(message=error_msg, provider="Firebase")
+    # 1. Thử tải từ biến môi trường chuỗi JSON (tiện lợi cho Cloud / Render / Railway)
+    cred = None
+    if settings.FIREBASE_CREDENTIALS_JSON and settings.FIREBASE_CREDENTIALS_JSON.strip():
+        try:
+            cert_dict = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
+            cred = credentials.Certificate(cert_dict)
+            logger.info("Đã nạp Firebase Service Account từ biến môi trường FIREBASE_CREDENTIALS_JSON.")
+        except Exception as e:
+            logger.error(f"Lỗi phân tích JSON từ FIREBASE_CREDENTIALS_JSON: {str(e)}")
+
+    # 2. Thử tải từ file đường dẫn (Secret Files hoặc local file)
+    if cred is None:
+        cred_path = settings.FIREBASE_CREDENTIALS_PATH
+
+        # Nếu đường dẫn chỉ định không tồn tại, tự tìm trong /etc/secrets/ (Render Secret Files)
+        if not cred_path or not os.path.exists(cred_path):
+            render_secrets = glob.glob("/etc/secrets/*.json")
+            if render_secrets:
+                cred_path = render_secrets[0]
+                logger.info(f"Tự động phát hiện Firebase Secret File trên Render: {cred_path}")
+
+        if not cred_path or not os.path.exists(cred_path):
+            error_msg = f"Không tìm thấy file Firebase Service Account tại đường dẫn: {cred_path}"
+            logger.error(error_msg)
+            raise ProviderException(message=error_msg, provider="Firebase")
+
+        cred = credentials.Certificate(cred_path)
 
     try:
         # Nếu đã có default app của firebase thì tái sử dụng
         _firebase_app = firebase_admin.get_app()
         logger.info(f"Tái sử dụng Firebase App hiện có: {_firebase_app.name}")
     except ValueError:
-        cred = credentials.Certificate(cred_path)
         _firebase_app = firebase_admin.initialize_app(cred)
         logger.info(f"Khởi tạo Firebase Admin SDK thành công! Project ID: {_firebase_app.project_id}")
 
