@@ -115,8 +115,8 @@ def create_app() -> FastAPI:
         return response
 
     # 3. Root Endpoint
-    @app.get("/api-info", tags=["General"])
-    @app.get("/", tags=["General"])
+    @app.api_route("/api-info", methods=["GET", "HEAD"], tags=["General"])
+    @app.api_route("/", methods=["GET", "HEAD"], tags=["General"])
     async def root() -> Dict[str, Any]:
         return {
             "name": settings.APP_NAME,
@@ -128,7 +128,7 @@ def create_app() -> FastAPI:
         }
 
     # 4. Health Check Endpoint
-    @app.get("/health", tags=["Health"])
+    @app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
     async def health_check() -> JSONResponse:
         firestore_healthy = await asyncio.to_thread(check_firestore_connection)
         from app.modules.detection.router import detection_service
