@@ -22,6 +22,8 @@ INPUT / OUTPUT:
 import glob
 import json
 import os
+from threading import Lock
+from time import monotonic
 from typing import Optional
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -33,6 +35,9 @@ from app.core.logging import logger
 
 _firebase_app: Optional[firebase_admin.App] = None
 _firestore_client: Optional[FirestoreClient] = None
+_health_lock = Lock()
+_health_result = False
+_health_expires_at = 0.0
 
 
 def init_firebase() -> firebase_admin.App:
@@ -94,12 +99,19 @@ def get_firestore_client() -> FirestoreClient:
 
 def check_firestore_connection() -> bool:
     """Kiểm tra tính sẵn sàng của kết nối Firestore (dùng cho Health Check)."""
-    try:
-        db = get_firestore_client()
-        # Thử lấy danh sách collections để xác nhận kết nối
-        collections = list(db.collections())
-        logger.debug(f"Firestore health check OK, số collections: {len(collections)}")
-        return True
-    except Exception as e:
-        logger.error(f"Firestore health check thất bại: {str(e)}")
-        return False
+    global _health_result, _health_expires_at
+    # Share one bounded probe across concurrent Render checks. Cache only this
+    # infrastructure signal, never account status, medical data or SOS state.
+    with _health_lock:
+        if monotonic() < _health_expires_at:
+            return _health_result
+        try:
+            db = get_firestore_client()
+            # A missing document is also a successful connectivity check.
+            db.document('_health/connectivity').get(retry=None, timeout=2)
+            _health_result = True
+        except Exception as e:
+            logger.error(f"Firestore health check thất bại: {str(e)}")
+            _health_result = False
+        _health_expires_at = monotonic() + (15 if _health_result else 5)
+        return _health_result

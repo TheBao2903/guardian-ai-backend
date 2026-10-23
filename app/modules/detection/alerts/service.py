@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime, timezone
 from functools import lru_cache
 import uuid
+import random
+from google.api_core.exceptions import ResourceExhausted
 
 from app.core.exceptions import AppException
 from app.core.logging import logger
@@ -95,6 +97,8 @@ class AlertService:
                 if row['status'] == 'PENDING':
                     await asyncio.to_thread(self.repository.decide, row['user_id'], row['alert_id'], 'timeout', self.now())
                 await self.dispatch(row['alert_id'])
+            except ResourceExhausted:
+                raise
             except Exception:
                 logger.exception('Audio alert dispatch failed; durable work will be retried')
         # Bound the number of dispatches without delaying the independent sender.
@@ -104,6 +108,10 @@ class AlertService:
     async def tick_deliveries(self):
         jobs = await asyncio.to_thread(self.repository.jobs)
         async def send(job):
+            # Waiting jobs and unexpired leases do not need a transaction read.
+            now = self.now()
+            if job['next_attempt_at'] > now or job['lease_until'] > now:
+                return
             async with self._delivery_slots:
                 token = uuid.uuid4().hex
                 row = await asyncio.to_thread(self.repository.claim_job, job['job_id'], self.now(), token)
@@ -135,6 +143,7 @@ class AlertWorker:
     def __init__(self, service_factory=get_alert_service):
         self.service_factory = service_factory
         self.tasks = []
+        self._service = None
 
     def start(self):
         if not self.tasks:
@@ -142,20 +151,31 @@ class AlertWorker:
                           asyncio.create_task(self._loop('tick_deliveries'))]
 
     async def _loop(self, method):
+        failures = 0
         while True:
+            delay = .5
             try:
-                await getattr(self.service_factory(), method)()
+                self._service = self.service_factory()
+                await getattr(self._service, method)()
+                failures = 0
             except asyncio.CancelledError:
                 raise
             except Exception:
+                failures = min(failures + 1, 7)
+                delay = min(60, 2 ** (failures - 1)) + random.uniform(0, .5)
                 logger.exception('Audio alert worker failed; retrying persisted work')
-            await asyncio.sleep(.5)
+            await asyncio.sleep(delay)
 
     async def stop(self):
         for task in self.tasks:
             task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
         self.tasks.clear()
+        if self._service is not None:
+            close = getattr(self._service.repository.store, 'close', None)
+            if close:
+                await asyncio.to_thread(close)
+            self._service = None
 
 
 alert_worker = AlertWorker()

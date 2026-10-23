@@ -24,6 +24,7 @@ INPUT / OUTPUT:
 """
 
 from datetime import datetime, timezone
+import asyncio
 from typing import Optional
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -69,7 +70,7 @@ async def get_current_user(
     except Exception:
         # 2. Nếu không phải JWT nội bộ, xác thực qua Firebase ID Token
         try:
-            decoded_token = firebase_auth.verify_id_token(token, check_revoked=False)
+            decoded_token = await asyncio.to_thread(firebase_auth.verify_id_token, token, check_revoked=False)
             uid = decoded_token.get("uid")
             email = decoded_token.get("email")
         except firebase_auth.ExpiredIdTokenError:
@@ -98,7 +99,7 @@ async def get_current_user(
         # Truy vấn thông tin người dùng từ Firestore (chạy trên worker thread để không block event loop)
         db = get_firestore_client()
         user_ref = db.collection("users").document(uid)
-        user_doc = user_ref.get()
+        user_doc = await asyncio.to_thread(user_ref.get)
 
         now_utc = datetime.now(timezone.utc)
 
@@ -122,7 +123,7 @@ async def get_current_user(
                 "notify_on_scream": True,
                 "notify_on_abnormal_sound": True,
             }
-            user_ref.set(user_data)
+            await asyncio.to_thread(user_ref.set, user_data)
             logger.info(f"Đã tự động khởi tạo hồ sơ người dùng Firestore cho UID: {uid}")
 
         # Kiểm tra trạng thái tài khoản

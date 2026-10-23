@@ -4,11 +4,28 @@ Callbacks must have no network side effects: Firestore can retry them.
 """
 from google.cloud import firestore
 from google.cloud.firestore import FieldFilter
+from app.infrastructure.firestore.watched_query import WatchedQuery
 
 
 class FirestoreStore:
     def __init__(self, db):
         self.db = db
+        self._work_queries = {}
+
+    def work_scan(self, collection, filters):
+        # Only fixed, global worker queries are watched. User-facing reads and
+        # transactions always go directly to Firestore.
+        if collection not in self._work_queries:
+            query = self.db.collection(collection)
+            for field, op, value in filters:
+                query = query.where(filter=FieldFilter(field, op, value))
+            self._work_queries[collection] = WatchedQuery(query)
+        return self._work_queries[collection].read()
+
+    def close(self):
+        for query in self._work_queries.values():
+            query.close()
+        self._work_queries.clear()
 
     def read(self, path):
         return self.db.document(path).get().to_dict()

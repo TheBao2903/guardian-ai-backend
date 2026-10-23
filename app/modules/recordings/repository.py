@@ -19,6 +19,7 @@ INPUT / OUTPUT:
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from google.api_core.exceptions import ResourceExhausted
 from google.cloud.firestore import Client as FirestoreClient, FieldFilter, Query
 
 from app.core.logging import logger
@@ -85,6 +86,9 @@ class RecordingRepository:
                 data["recording_id"] = doc.id
                 results.append(data)
             return results
+        except ResourceExhausted:
+            # A broader fallback query cannot repair exhausted quota.
+            raise
         except Exception as e:
             logger.warning(f"Native index chưa sẵn sàng ({str(e)}), fallback in-memory sort.")
             docs = self.collection.where(filter=FieldFilter("user_id", "==", user_id)).stream()

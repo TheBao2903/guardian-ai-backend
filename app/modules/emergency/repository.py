@@ -20,7 +20,8 @@ INPUT / OUTPUT:
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from google.cloud.firestore import Client as FirestoreClient, FieldFilter
+from google.api_core.exceptions import ResourceExhausted
+from google.cloud.firestore import Client as FirestoreClient, FieldFilter, Query
 
 from app.core.logging import logger
 from app.infrastructure.firestore.client import get_firestore_client
@@ -96,6 +97,9 @@ class EmergencyRepository:
                 data["session_id"] = doc.id
                 results.append(data)
             return results
+        except ResourceExhausted:
+            # A broader fallback query cannot repair exhausted quota.
+            raise
         except Exception as e:
             logger.warning(f"Firestore Index chưa sẵn sàng ({str(e)}), fallback in-memory sort.")
             docs = self.collection.where(filter=FieldFilter("user_id", "==", user_id)).stream()

@@ -5,8 +5,10 @@ from app.modules.auth.schemas import AuthenticatedUser
 from app.shared.schemas.envelope import ApiResponse
 from .schemas import AlertCandidate, AlertResponse
 from .service import AlertService, get_alert_service
+from .stream import router as stream_router
 
 router = APIRouter()
+router.include_router(stream_router)
 
 
 @router.post('/alerts', response_model=ApiResponse[AlertResponse])

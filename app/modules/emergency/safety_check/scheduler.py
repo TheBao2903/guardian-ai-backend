@@ -78,6 +78,14 @@ class SafetyCheckScheduler:
         if self._task:
             self._task.cancel()
 
+    async def wait_stopped(self) -> None:
+        if self._task:
+            await asyncio.gather(self._task, return_exceptions=True)
+            self._task = None
+        close = getattr(self.service.repository, 'close', None)
+        if close:
+            await asyncio.to_thread(close)
+
 
 # Singleton scheduler instance
 safety_check_scheduler = SafetyCheckScheduler()

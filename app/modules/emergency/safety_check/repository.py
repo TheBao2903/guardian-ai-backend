@@ -26,6 +26,7 @@ from google.cloud.firestore import Client as FirestoreClient, FieldFilter
 
 from app.core.logging import logger
 from app.infrastructure.firestore.client import get_firestore_client
+from app.infrastructure.firestore.watched_query import WatchedQuery
 from app.shared.enums.safety_check import DefaultTemplateId, SafetyCheckStatus
 
 DEFAULT_SYSTEM_TEMPLATES = [
@@ -85,6 +86,7 @@ class SafetyCheckRepository:
         self.db = db or get_firestore_client()
         self.templates_col = self.db.collection("safety_check_templates")
         self.instances_col = self.db.collection("safety_check_instances")
+        self._overdue_query = None
         if not SafetyCheckRepository._templates_seeded:
             self._seed_default_templates()
             SafetyCheckRepository._templates_seeded = True
@@ -231,9 +233,10 @@ class SafetyCheckRepository:
                 [SafetyCheckStatus.ACTIVE.value, SafetyCheckStatus.CHECK_REQUIRED.value],
             )
         )
-        docs = query.stream()
-        for doc in docs:
-            d = doc.to_dict() or {}
+        if self._overdue_query is None:
+            self._overdue_query = WatchedQuery(query)
+        for row in self._overdue_query.read():
+            d = {key: value for key, value in row.items() if key != '_document_id'}
             st = d.get("status")
             if st in [SafetyCheckStatus.ACTIVE.value, SafetyCheckStatus.CHECK_REQUIRED.value]:
                 gp_until = d.get("grace_period_until")
@@ -248,10 +251,15 @@ class SafetyCheckRepository:
                         gp_until_dt = gp_until
 
                     if gp_until_dt <= now:
-                        d["instance_id"] = doc.id
+                        d["instance_id"] = row['_document_id']
                         overdue_list.append(d)
 
         return overdue_list
+
+    def close(self):
+        if self._overdue_query is not None:
+            self._overdue_query.close()
+            self._overdue_query = None
 
     def claim_overdue(self, instance_id, now):
         from app.modules.detection.alerts.store import FirestoreStore

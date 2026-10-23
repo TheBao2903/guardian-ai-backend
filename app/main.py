@@ -23,6 +23,7 @@ INPUT / OUTPUT:
 """
 
 from contextlib import asynccontextmanager
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator, Dict, Any
@@ -73,6 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Dừng worker khi tắt ứng dụng
     safety_check_scheduler.stop()
+    await safety_check_scheduler.wait_stopped()
     await alert_worker.stop()
     logger.info(f"Đang dừng {settings.APP_NAME}...")
 
@@ -128,7 +130,7 @@ def create_app() -> FastAPI:
     # 4. Health Check Endpoint
     @app.get("/health", tags=["Health"])
     async def health_check() -> JSONResponse:
-        firestore_healthy = check_firestore_connection()
+        firestore_healthy = await asyncio.to_thread(check_firestore_connection)
         from app.modules.detection.router import detection_service
         audio_ready = detection_service.yamnet.is_available()
 

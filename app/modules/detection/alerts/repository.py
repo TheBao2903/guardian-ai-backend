@@ -139,12 +139,17 @@ class AlertRepository:
     def work(self, now):
         # Single-field indexes suffice; a dedicated worker keeps deadline timing
         # independent of the existing 30-second Safety Check scheduler.
-        rows = self.store.scan('audio_alerts', [('status', 'in', ['PENDING', 'DISPATCHING'])])
-        return [r for r in rows if r['deadline_at'] <= now or r['status'] == 'DISPATCHING']
+        scan = getattr(self.store, 'work_scan', self.store.scan)
+        rows = scan('audio_alerts', [('status', 'in', ['PENDING', 'DISPATCHING'])])
+        return [r for r in rows
+                if (r['deadline_at'] <= now or r['status'] == 'DISPATCHING')
+                and (not r.get('lease_until') or r['lease_until'] <= now)]
 
     def jobs(self, alert_id=None):
         filters = [('alert_id', '==', alert_id)] if alert_id else [('status', 'in', ['PENDING', 'RETRY', 'SENDING'])]
-        return self.store.scan('audio_notification_outbox', filters)
+        scan = (getattr(self.store, 'work_scan', self.store.scan)
+                if alert_id is None else self.store.scan)
+        return scan('audio_notification_outbox', filters)
 
     def claim_job(self, job_id, now, token):
         def operation(tx):
