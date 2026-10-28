@@ -17,13 +17,14 @@ INPUT / OUTPUT:
 """
 
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.shared.schemas.location import GeoPointSchema
 
 
 class LocationCheckpointCreateRequest(BaseModel):
     """Payload ghi nhận một mốc tọa độ GPS quan trọng."""
+    model_config = ConfigDict(allow_inf_nan=False)
     latitude: float = Field(..., ge=-90.0, le=90.0, description="Vĩ độ")
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Kinh độ")
     accuracy_meters: Optional[float] = Field(None, ge=0.0, description="Bán kính sai số (m)")

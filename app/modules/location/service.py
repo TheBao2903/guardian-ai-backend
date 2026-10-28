@@ -23,6 +23,7 @@ INPUT / OUTPUT:
 
 import uuid
 from typing import List, Optional
+from starlette.concurrency import run_in_threadpool
 
 from app.core.exceptions import EntityNotFoundException
 from app.modules.location.repository import LocationRepository
@@ -44,8 +45,8 @@ class LocationService:
         """Chuyển đổi dữ liệu thô sang DTO chuẩn."""
         loc_dict = raw.get("location", {})
         geo_point = GeoPointSchema(
-            latitude=loc_dict.get("latitude", 0.0),
-            longitude=loc_dict.get("longitude", 0.0),
+            latitude=loc_dict.get("latitude"),
+            longitude=loc_dict.get("longitude"),
             accuracy_meters=loc_dict.get("accuracy_meters"),
             altitude=loc_dict.get("altitude"),
             speed=loc_dict.get("speed"),
@@ -86,19 +87,19 @@ class LocationService:
             "address_text": request.address_text,
         }
 
-        saved = self.repository.create(checkpoint_id, data)
+        saved = await run_in_threadpool(self.repository.create, checkpoint_id, data)
         return self._to_checkpoint_response(saved)
 
     async def get_latest_location(self, user_id: str) -> LatestLocationResponse:
         """Lấy mốc vị trí GPS gần nhất của người dùng."""
-        raw = self.repository.get_latest_by_user(user_id)
+        raw = await run_in_threadpool(self.repository.get_latest_by_user, user_id)
         if not raw:
             raise EntityNotFoundException(f"Chưa có mốc vị trí nào được ghi nhận cho người dùng: {user_id}")
 
         loc_dict = raw.get("location", {})
         geo_point = GeoPointSchema(
-            latitude=loc_dict.get("latitude", 0.0),
-            longitude=loc_dict.get("longitude", 0.0),
+            latitude=loc_dict.get("latitude"),
+            longitude=loc_dict.get("longitude"),
             accuracy_meters=loc_dict.get("accuracy_meters"),
             altitude=loc_dict.get("altitude"),
             speed=loc_dict.get("speed"),
@@ -118,5 +119,7 @@ class LocationService:
         self, user_id: str, session_id: Optional[str] = None, limit: int = 50
     ) -> List[LocationCheckpointResponse]:
         """Lấy danh sách các mốc vị trí của người dùng."""
-        raw_list = self.repository.list_by_user(user_id=user_id, session_id=session_id, limit=limit)
+        raw_list = await run_in_threadpool(
+            self.repository.list_by_user, user_id=user_id, session_id=session_id, limit=limit
+        )
         return [self._to_checkpoint_response(item) for item in raw_list]

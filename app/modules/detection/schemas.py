@@ -29,7 +29,7 @@ from app.modules.detection.alerts.schemas import AlertResponse
 
 from app.shared.enums.detection import AudioEventType, DetectionRiskLevel, DetectorModelType
 from app.shared.schemas.detection_signal import DetectionSignal
-from app.shared.schemas.location import GeoPointSchema
+from app.shared.schemas.location import GeoPointSchema, OptionalCoordinatesRequest
 
 
 class DetectionSignalInput(BaseModel):
@@ -54,7 +54,7 @@ class DetectionSignalInput(BaseModel):
     raw_labels: Optional[Dict[str, float]] = Field(None, description="Điểm số thô của các nhãn mô hình")
 
 
-class DetectionSignalIngestRequest(BaseModel):
+class DetectionSignalIngestRequest(OptionalCoordinatesRequest):
     """Payload tiếp nhận danh sách các tín hiệu âm thanh từ Client/Edge AI."""
     signals: List[DetectionSignalInput] = Field(
         ...,
@@ -68,7 +68,7 @@ class DetectionSignalIngestRequest(BaseModel):
     notes: Optional[str] = Field(None, max_length=500, description="Ghi chú thêm từ client")
 
 
-class AudioAnalyzeRequest(BaseModel):
+class AudioAnalyzeRequest(OptionalCoordinatesRequest):
     model_config = ConfigDict(allow_inf_nan=False)
     monitoring_session_id: str | None = Field(None, min_length=1, max_length=100)
     window_end_sample: int = Field(0, ge=0)

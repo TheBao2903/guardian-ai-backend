@@ -24,6 +24,7 @@ INPUT / OUTPUT:
 
 from contextlib import asynccontextmanager
 import asyncio
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator, Dict, Any
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
             "version": settings.APP_VERSION,
             "environment": settings.APP_ENV,
             "status": "online",
+            "revision": os.getenv("RENDER_GIT_COMMIT"),
             "docs_url": "/docs",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }

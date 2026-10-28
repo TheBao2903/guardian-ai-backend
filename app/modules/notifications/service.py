@@ -27,6 +27,7 @@ INPUT / OUTPUT:
 import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from starlette.concurrency import run_in_threadpool
 from google.cloud.firestore import Client as FirestoreClient
 
 from app.core.config import get_settings
@@ -84,7 +85,7 @@ class NotificationService:
 
         async def _send_single(contact: ContactResponse) -> NotificationResult:
             res = await self.telegram_provider.send_sos_alert(contact.telegram_id, payload)
-            self._log_notification_audit(user_id, "SOS_ALERT", res)
+            await run_in_threadpool(self._log_notification_audit, user_id, "SOS_ALERT", res)
             return res
 
         if not eligible:
@@ -102,7 +103,7 @@ class NotificationService:
 
         async def _send_single(contact: ContactResponse) -> NotificationResult:
             res = await self.telegram_provider.send_safety_check_alert(contact.telegram_id, payload)
-            self._log_notification_audit(user_id, "SAFETY_CHECK_TIMEOUT", res)
+            await run_in_threadpool(self._log_notification_audit, user_id, "SAFETY_CHECK_TIMEOUT", res)
             return res
 
         if not eligible:
@@ -120,7 +121,7 @@ class NotificationService:
 
         async def _send_single(contact: ContactResponse) -> NotificationResult:
             res = await self.telegram_provider.send_all_clear(contact.telegram_id, payload)
-            self._log_notification_audit(user_id, "ALL_CLEAR", res)
+            await run_in_threadpool(self._log_notification_audit, user_id, "ALL_CLEAR", res)
             return res
 
         if not eligible:
@@ -156,7 +157,7 @@ class NotificationService:
 
         async def _send_single(contact: ContactResponse) -> NotificationResult:
             res = await self.telegram_provider.send_duress_alert(contact.telegram_id, payload)
-            self._log_notification_audit(user_id, "DURESS_COERCION", res)
+            await run_in_threadpool(self._log_notification_audit, user_id, "DURESS_COERCION", res)
             return res
 
         if not eligible:
@@ -193,7 +194,7 @@ class NotificationService:
                 filename,
                 caption,
             )
-            self._log_notification_audit(user_id, "AUDIO_EVIDENCE", res)
+            await run_in_threadpool(self._log_notification_audit, user_id, "AUDIO_EVIDENCE", res)
             return res
 
         if not top_3:

@@ -16,6 +16,7 @@ INPUT / OUTPUT:
 
 from typing import Any, Optional
 from pydantic import BaseModel, Field
+from app.shared.schemas.location import OptionalCoordinatesRequest
 
 
 class UserProfileResponse(BaseModel):
@@ -53,15 +54,15 @@ class UpdateProfileRequest(BaseModel):
     telegram_enabled: Optional[bool] = Field(None, description="Bật/tắt thông báo Telegram cá nhân")
 
 
-class UpdateDeviceLocationRequest(BaseModel):
+class UpdateDeviceLocationRequest(OptionalCoordinatesRequest):
     """Payload đăng ký thiết bị và ủy quyền vị trí khẩn cấp."""
     device_name: str = Field(..., description="Tên thiết bị (ví dụ: Apple iPhone 15 Pro, Windows PC Chrome)")
     platform: Optional[str] = Field("Web", description="Nền tảng (iOS, Android, Windows, Web)")
     os_version: Optional[str] = Field(None, description="Phiên bản hệ điều hành")
     location_permission_granted: bool = Field(True, description="Trạng thái đã cấp quyền vị trí nền")
-    latitude: Optional[float] = Field(None, description="Vĩ độ GPS hiện tại")
-    longitude: Optional[float] = Field(None, description="Kinh độ GPS hiện tại")
-    accuracy: Optional[float] = Field(None, description="Độ chính xác GPS (mét)")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Vĩ độ GPS hiện tại")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Kinh độ GPS hiện tại")
+    accuracy: Optional[float] = Field(None, ge=0, description="Độ chính xác GPS (mét)")
     address: Optional[str] = Field(None, description="Địa chỉ ước tính")
 
 

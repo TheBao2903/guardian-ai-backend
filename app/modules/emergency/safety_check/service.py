@@ -35,6 +35,7 @@ INPUT / OUTPUT:
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 import uuid
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.core.exceptions import EntityNotFoundException, UnauthorizedException, ValidationException
@@ -345,7 +346,7 @@ class SafetyCheckService:
         self, user_id: str, instance_id: str, latitude: float, longitude: float, accuracy: Optional[float] = None
     ) -> SafetyCheckInstanceResponse:
         """Cập nhật tọa độ GPS gần nhất trong quá trình hẹn giờ."""
-        instance = self.repository.get_instance(instance_id)
+        instance = await run_in_threadpool(self.repository.get_instance, instance_id)
         if not instance:
             raise EntityNotFoundException(f"Không tìm thấy phiên Safety Check với ID: {instance_id}")
 
@@ -353,7 +354,8 @@ class SafetyCheckService:
             raise UnauthorizedException("Bạn không có quyền thao tác phiên này.")
 
         loc = GeoPointSchema(latitude=latitude, longitude=longitude, accuracy_meters=accuracy)
-        updated = self.repository.update_instance(
+        updated = await run_in_threadpool(
+            self.repository.update_instance,
             instance_id,
             {
                 "latest_location": loc.model_dump(),

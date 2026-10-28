@@ -21,6 +21,7 @@ INPUT / OUTPUT:
 
 from datetime import datetime, timezone
 from typing import List, Optional
+from starlette.concurrency import run_in_threadpool
 from app.core.exceptions import EntityNotFoundException
 from app.core.logging import logger
 from app.core.security import PinHasher
@@ -97,8 +98,9 @@ class UserService:
 
     async def update_device_location(self, uid: str, data: UpdateDeviceLocationRequest) -> UserProfileResponse:
         """Đăng ký thiết bị và ủy quyền vị trí khẩn cấp cho người dùng."""
-        now_iso = str(data.latitude and datetime.now(timezone.utc).isoformat() or "")
-        
+        return await run_in_threadpool(self._update_device_location, uid, data)
+
+    def _update_device_location(self, uid: str, data: UpdateDeviceLocationRequest) -> UserProfileResponse:
         device_dict = {
             "device_name": data.device_name,
             "platform": data.platform,

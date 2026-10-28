@@ -86,7 +86,7 @@ def test_extend_keeps_original_deadline_basis_grace_and_three_extension_limit():
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('action', ['confirm', 'cancel', 'extend'])
+@pytest.mark.parametrize('action', ['confirm', 'cancel', 'extend', 'location'])
 def test_other_user_cannot_change_safety_check(action):
     async def run():
         svc, repo, _ = setup_service()
@@ -97,9 +97,38 @@ def test_other_user_cannot_change_safety_check(action):
                 await svc.confirm_safe('other', started.instance_id, ConfirmSafeRequest())
             elif action == 'cancel':
                 await svc.cancel_instance('other', started.instance_id, CancelSafetyCheckRequest())
+            elif action == 'location':
+                await svc.update_location('other', started.instance_id, 0, 0, 15)
             else:
                 await svc.extend_timer('other', started.instance_id, ExtendSafetyCheckRequest())
         assert repo.rows == before
+    asyncio.run(run())
+
+
+def test_location_update_keeps_zero_coordinates_and_database_work_off_loop():
+    from threading import get_ident
+
+    async def run():
+        svc, repo, _ = setup_service()
+        started = await svc.start_safety_check('u', StartSafetyCheckRequest(duration_minutes=20))
+        main_thread = get_ident()
+        threads = []
+        original_get, original_update = repo.get_instance, repo.update_instance
+
+        def get(instance_id):
+            threads.append(get_ident())
+            return original_get(instance_id)
+
+        def update(instance_id, data):
+            threads.append(get_ident())
+            return original_update(instance_id, data)
+
+        repo.get_instance, repo.update_instance = get, update
+        response = await svc.update_location('u', started.instance_id, 0, 0, 15)
+        assert response.latest_location.latitude == response.latest_location.longitude == 0
+        assert response.latest_location.accuracy_meters == 15
+        assert threads and all(t != main_thread for t in threads)
+
     asyncio.run(run())
 
 

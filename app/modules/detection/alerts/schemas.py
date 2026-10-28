@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.shared.schemas.location import OptionalCoordinatesRequest
 
 
-class AlertCandidate(BaseModel):
+class AlertCandidate(OptionalCoordinatesRequest):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     monitoring_session_id: str = Field(min_length=1, max_length=100)
     idempotency_key: str = Field(min_length=1, max_length=160)

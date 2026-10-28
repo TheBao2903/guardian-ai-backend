@@ -22,10 +22,10 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from app.shared.enums.emergency import EmergencySeverity, EmergencyStatus, EmergencyTriggerType
-from app.shared.schemas.location import GeoPointSchema
+from app.shared.schemas.location import GeoPointSchema, OptionalCoordinatesRequest
 
 
-class EmergencyTriggerRequest(BaseModel):
+class EmergencyTriggerRequest(OptionalCoordinatesRequest):
     """Payload kích hoạt phiên khẩn cấp SOS."""
     trigger_type: EmergencyTriggerType = Field(
         EmergencyTriggerType.MANUAL_SOS,

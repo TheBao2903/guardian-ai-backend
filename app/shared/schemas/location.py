@@ -17,11 +17,25 @@ INPUT / OUTPUT:
 
 from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class OptionalCoordinatesRequest(BaseModel):
+    """Accept no location, or one complete, finite coordinate pair."""
+    model_config = ConfigDict(allow_inf_nan=False)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def validate_coordinate_pair(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
 
 
 class GeoPointSchema(BaseModel):
     """Mô hình dữ liệu vị trí địa lý chuẩn hóa."""
+    model_config = ConfigDict(allow_inf_nan=False)
     latitude: float = Field(..., ge=-90.0, le=90.0, description="Vĩ độ (-90 đến 90)")
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Kinh độ (-180 đến 180)")
     accuracy_meters: Optional[float] = Field(None, ge=0.0, description="Bán kính sai số theo mét")

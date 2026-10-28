@@ -58,11 +58,9 @@ class LocationRepository:
         """Lấy danh sách các checkpoints của người dùng, sắp xếp mới nhất lên đầu (High Performance)."""
         try:
             # 1. Thử query native với Composite Index
-            query = self.collection
+            query = self.collection.where(filter=FieldFilter("user_id", "==", user_id))
             if session_id:
                 query = query.where(filter=FieldFilter("session_id", "==", session_id))
-            else:
-                query = query.where(filter=FieldFilter("user_id", "==", user_id))
 
             docs = query.order_by("created_at", direction=Query.DESCENDING).limit(limit).stream()
             results = []

@@ -19,10 +19,10 @@ INPUT / OUTPUT:
 """
 
 from typing import Any, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.shared.enums.safety_check import SafetyCheckStatus
-from app.shared.schemas.location import GeoPointSchema
+from app.shared.schemas.location import GeoPointSchema, OptionalCoordinatesRequest
 
 
 class SafetyCheckTemplateResponse(BaseModel):
@@ -62,7 +62,7 @@ class CreateCustomTemplateRequest(BaseModel):
         return value
 
 
-class StartSafetyCheckRequest(BaseModel):
+class StartSafetyCheckRequest(OptionalCoordinatesRequest):
     """Payload bắt đầu một phiên hẹn giờ an toàn mới."""
     template_id: Optional[str] = Field(None, description="ID template chọn (nếu dùng template)")
     custom_name: Optional[str] = Field(None, description="Tên tùy chỉnh nếu không dùng template")
@@ -90,6 +90,7 @@ class CancelSafetyCheckRequest(BaseModel):
 
 
 class UpdateLocationCheckpointRequest(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
     """Payload cập nhật vị trí hiện tại trong quá trình đếm ngược."""
     latitude: float = Field(..., ge=-90.0, le=90.0)
     longitude: float = Field(..., ge=-180.0, le=180.0)
